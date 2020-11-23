@@ -4,35 +4,46 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/gin-gonic/gin"
 	"net"
-	"os"
+	"net/url"
+	"strconv"
+	"sync"
 )
 
-var logger = log.New(os.Stdout, "", log.Llongfile|log.LstdFlags)
-
-const HttpRequest = `GET /worker HTTP/1.1
-Host: localhost:8000
+const HttpRequestStr = `GET /worker HTTP/1.1
+Host: any
 
 `
 
-func main() {
-	data := CallWorker()
-	fmt.Println(data)
+type ConnWorker struct {
+	conn net.Conn
+	buf  []byte
 }
 
-func CallWorker() int {
-	conn, err := net.Dial("tcp", "127.0.0.1:8000")
-	if err != nil {
-		logger.Fatalln(err)
-	}
-	defer conn.Close()
+var HttpRequestBytes = []byte(HttpRequestStr)
+var ConnPool = sync.Pool{New: func() interface{} {
+	return &ConnWorker{buf: make([]byte, 1024)}
+}}
 
-	conn.Write([]byte(HttpRequest))
-	buf := make([]byte, 4096) // 假定回复内容不超过4K字节
+func OneCall(address string) int {
+	w := ConnPool.Get().(*ConnWorker)
+	defer ConnPool.Put(w)
+	if w.conn == nil {
+		conn, err := net.Dial("tcp", address)
+		if err != nil {
+			fmt.Println(err)
+			return 0
+		}
+		w.conn = conn
+	}
+
+	conn := w.conn
+	buf := w.buf
+	conn.Write(HttpRequestBytes)
 	n, err := conn.Read(buf)
 	if err != nil {
-		logger.Println(err)
+		fmt.Println(err)
 		return 0
 	}
 
@@ -43,7 +54,7 @@ func CallWorker() int {
 	var body WorkerBody
 	err = json.Unmarshal(js, &body)
 	if err != nil {
-		logger.Println(err)
+		fmt.Println(err)
 	}
 	return body.Data
 }
@@ -52,33 +63,34 @@ type WorkerBody struct {
 	Data int `json:"data"`
 }
 
-func Manager() {
-	server, err := net.Listen("tcp", "0.0.0.0:1080")
-	if err != nil {
-		logger.Fatalln(err)
-	}
-	for {
-		conn, err := server.Accept()
-		if err != nil {
-			logger.Println(err)
-			continue
-		}
-		go process(conn)
-	}
+func work(cb chan<- int, address string) {
+	cb <- OneCall(address)
 }
 
-func process(conn net.Conn) {
-	remote := conn.RemoteAddr().String()
-	defer func() {
-		conn.Close()
-		logger.Println(remote, "closed!")
-	}()
-	logger.Println(remote)
-	buf := make([]byte, 4096) // 假定请求内容不超过4K字节
-	_, err := conn.Read(buf)
+func manage(n int, u string) int {
+	uu, err := url.Parse(u)
 	if err != nil {
-		logger.Println(err)
-		return
+		fmt.Println(err)
 	}
-	fmt.Println(string(buf))
+	cb := make(chan int, 10)
+	for i := 0; i < n; i++ {
+		go work(cb, uu.Host)
+	}
+	sum := 0
+	for i := 0; i < n; i++ {
+		sum += <-cb
+	}
+	return sum
+}
+
+func main() {
+	g := gin.New()
+	g.GET("/manager", func(c *gin.Context) {
+		u := c.Query("url")
+		numStr := c.Query("n")
+		num, _ := strconv.Atoi(numStr)
+		data := manage(num, u)
+		c.JSON(200, gin.H{"data": data})
+	})
+	g.Run("0.0.0.0:5004")
 }
