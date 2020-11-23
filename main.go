@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -25,7 +26,25 @@ func main() {
 
 func process(conn net.Conn) {
 	remote := conn.RemoteAddr().String()
+	defer func() {
+		conn.Close()
+		logger.Println(remote, "closed!")
+	}()
 	logger.Println(remote)
 	conn.Write([]byte("Hello, world!\n"))
-	conn.Close()
+	buf := make([]byte, 4096)
+	total := 0
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			logger.Println(err)
+			return
+		}
+		total += n
+		if n == 4 {
+			continue
+		}
+		conn.Write([]byte(fmt.Sprintf("You said %d bytes to me.\n", total)))
+		total = 0
+	}
 }
