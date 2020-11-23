@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -15,10 +17,11 @@ Host: localhost:8000
 `
 
 func main() {
-	CallWorker()
+	data := CallWorker()
+	fmt.Println(data)
 }
 
-func CallWorker() {
+func CallWorker() int {
 	conn, err := net.Dial("tcp", "127.0.0.1:8000")
 	if err != nil {
 		logger.Fatalln(err)
@@ -27,21 +30,26 @@ func CallWorker() {
 
 	conn.Write([]byte(HttpRequest))
 	buf := make([]byte, 4096) // 假定回复内容不超过4K字节
-	_, err = conn.Read(buf)
+	n, err := conn.Read(buf)
 	if err != nil {
 		logger.Println(err)
-		return
+		return 0
 	}
-	fmt.Println(string(buf))
 
-	conn.Write([]byte(HttpRequest))
-	// buf := make([]byte, 4096) // 一个极致危险的优化：不清空buf
-	_, err = conn.Read(buf)
+	// 识别出json的部分
+	index := bytes.Index(buf[:n], []byte("\r\n\r\n"))
+	// 这里暂时不处理找不到的情况
+	js := buf[index+4 : n]
+	var body WorkerBody
+	err = json.Unmarshal(js, &body)
 	if err != nil {
 		logger.Println(err)
-		return
 	}
-	fmt.Println(string(buf))
+	return body.Data
+}
+
+type WorkerBody struct {
+	Data int `json:"data"`
 }
 
 func Manager() {
