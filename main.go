@@ -88,7 +88,19 @@ func manage(n int, u string) int {
 	return sum
 }
 
+func warmUp() {
+	total := 10000
+	temp := make([]interface{}, total)
+	for i := range temp {
+		temp[i] = ConnPool.Get()
+	}
+	for _, conn := range temp {
+		ConnPool.Put(conn)
+	}
+}
+
 func main() {
+	warmUp()
 	g := gin.New()
 	g.GET("/manager", func(c *gin.Context) {
 		u := c.Query("url")
