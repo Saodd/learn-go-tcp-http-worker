@@ -31,20 +31,11 @@ func process(conn net.Conn) {
 		logger.Println(remote, "closed!")
 	}()
 	logger.Println(remote)
-	conn.Write([]byte("Hello, world!\n"))
-	buf := make([]byte, 4096)
-	total := 0
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			logger.Println(err)
-			return
-		}
-		total += n
-		if n == 4 {
-			continue
-		}
-		conn.Write([]byte(fmt.Sprintf("You said %d bytes to me.\n", total)))
-		total = 0
+	buf := make([]byte, 4096) // 假定请求内容不超过4K字节
+	_, err := conn.Read(buf)
+	if err != nil {
+		logger.Println(err)
+		return
 	}
+	fmt.Println(string(buf))
 }
