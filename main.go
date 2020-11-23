@@ -29,34 +29,39 @@ var ConnPool = sync.Pool{New: func() interface{} {
 func OneCall(address string) int {
 	w := ConnPool.Get().(*ConnWorker)
 	defer ConnPool.Put(w)
-	if w.conn == nil {
-		conn, err := net.Dial("tcp", address)
+
+	for retry := 0; retry < 2; retry++ {
+		if w.conn == nil {
+			conn, err := net.Dial("tcp", address)
+			if err != nil {
+				fmt.Println(err)
+				return 0
+			}
+			w.conn = conn
+		}
+
+		conn := w.conn
+		buf := w.buf
+		conn.Write(HttpRequestBytes)
+		n, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println(err)
-			return 0
+			w.conn = nil
+			continue
 		}
-		w.conn = conn
-	}
 
-	conn := w.conn
-	buf := w.buf
-	conn.Write(HttpRequestBytes)
-	n, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println(err)
-		return 0
+		// 识别出json的部分
+		index := bytes.Index(buf[:n], []byte("\r\n\r\n"))
+		// 这里暂时不处理找不到的情况
+		js := buf[index+4 : n]
+		var body WorkerBody
+		err = json.Unmarshal(js, &body)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return body.Data
 	}
-
-	// 识别出json的部分
-	index := bytes.Index(buf[:n], []byte("\r\n\r\n"))
-	// 这里暂时不处理找不到的情况
-	js := buf[index+4 : n]
-	var body WorkerBody
-	err = json.Unmarshal(js, &body)
-	if err != nil {
-		fmt.Println(err)
-	}
-	return body.Data
+	return 0
 }
 
 type WorkerBody struct {
