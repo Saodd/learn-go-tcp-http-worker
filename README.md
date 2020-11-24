@@ -1,4 +1,4 @@
-# learn-go-sock5-proxy
+# learn-go-tcp-http-worker
 
 鸣谢 & 灵感来源： https://www.v2ex.com/t/727922#
 
