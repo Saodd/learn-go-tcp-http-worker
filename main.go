@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 	"sync"
 )
@@ -100,7 +101,8 @@ func warmUp() {
 }
 
 func main() {
-	warmUp()
+	debug.SetGCPercent(-1) // 其实没什么用
+	warmUp()               // 其实也没什么用
 	g := gin.New()
 	g.GET("/manager", func(c *gin.Context) {
 		u := c.Query("url")

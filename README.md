@@ -1,19 +1,9 @@
 # learn-go-sock5-proxy
-参考 https://www.v2ex.com/t/727922#
 
-```shell-session
-% curl localhost:1080
-curl: (52) Empty reply from server
+鸣谢 & 灵感来源： https://www.v2ex.com/t/727922#
 
-```
+一次HTTP并发编程比赛。
 
-```shell-session
-2020/11/23 18:12:50 /learn-go-sock5-proxy/main.go:33: [::1]:53198
-GET / HTTP/1.1
-Host: localhost:1080
-User-Agent: curl/7.64.1
-Accept: */*
+赛题主要内容是： 写一个服务A，接收客户端请求后向指定的服务B发起N次调用，并将N次调用的结果汇总返回。
 
-
-2020/11/23 18:12:50 /learn-go-sock5-proxy/main.go:31: [::1]:53198 closed!
-```
+并发压力：调用端10k并发。
