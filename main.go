@@ -47,6 +47,7 @@ func OneCall(address string) int {
 		n, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println(err)
+			w.conn.Close()
 			w.conn = nil
 			continue
 		}
